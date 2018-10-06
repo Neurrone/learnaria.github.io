@@ -2,10 +2,10 @@
  
 var pluginName = "ik_suggest",
 	defaults = {
+		'instructions': 'As you start typing the application might suggest similar search terms. Use up and down arrow keys to select a suggested search string.',
 		'minLength': 2,
 		'maxResults': 10,
 		'source': []
-		
 	};
 	
 	/**
@@ -34,7 +34,8 @@ var pluginName = "ik_suggest",
 		plugin = this;
 		
 		plugin.notify = $('<div/>') // add hidden live region to be used by screen readers
-			.addClass('ik_readersonly');
+			.addClass('ik_readersonly')
+			.attr({role: 'region', 'aria-live': 'polite'});
 		
 		$elem = plugin.element
 			.attr({
@@ -64,7 +65,7 @@ var pluginName = "ik_suggest",
 		var plugin;
 		
 		plugin = event.data.plugin;
-
+		plugin.notify.text(plugin.options.instructions);
 	};
 	
 	/** 
@@ -114,7 +115,24 @@ var pluginName = "ik_suggest",
 		
 		plugin = event.data.plugin;
 		$me = $(event.currentTarget);
-			
+		switch (event.keyCode) {
+			case ik_utils.keys.down:
+				selected = plugin.list.find('.selected');   
+				if(selected.length) {
+					msg = selected.removeClass('selected').next().addClass('selected').text();
+				} else {
+					msg = plugin.list.find('li:first').addClass('selected').text();
+				}
+				plugin.notify.text(msg);
+				break;
+			case ik_utils.keys.up:
+				selected = plugin.list.find('.selected');
+				if(selected.length) {
+					msg = selected.removeClass('selected').prev().addClass('selected').text();
+				}
+				plugin.notify.text(msg);
+				break;
+			default:
 				plugin.list.empty();
 				
 				suggestions = plugin.getSuggestions(plugin.options.source, $me.val());
@@ -129,10 +147,10 @@ var pluginName = "ik_suggest",
 				} else {
 					plugin.list.hide();
 				}
-
+		}
 	};
 	
-	/** 
+		/** 
 	 * Handles fosucout event on text field.
 	 * 
 	 * @param {object} event - Focus event.
@@ -194,7 +212,9 @@ var pluginName = "ik_suggest",
 				}
 			}
 		}
-
+		if (r.length > 1) {
+			this.notify.text(`${r.length} suggestions available. Use up and down arrows to select one, and press enter to accept.`);
+		}
 		return r;
 		
 	};
