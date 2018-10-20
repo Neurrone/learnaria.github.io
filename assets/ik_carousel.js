@@ -2,7 +2,8 @@
 	
 	var pluginName = 'ik_carousel',
 		defaults = { // default settings
-			'animationSpeed' : 3000
+			'instructions': 'Carousel widget. Use left and right arrows to navigate between slides.',
+            'animationSpeed' : 3000
 		};
 	 
 	/**
@@ -18,9 +19,7 @@
 		this._defaults = defaults;
 		this.element = $(element);
 		this.options = $.extend( {}, defaults, options) ;
-		
 		this.init();
-	
 	};
 	
 	/** Initializes plugin. */
@@ -34,14 +33,18 @@
 		
 		$elem
 			.attr({
-				'id': id
+				'id': id,
+                'role': 'region',
+                'tabindex': 0,
+                'aria-describedby': id + '_instructions'
 			})
 			.addClass('ik_carousel')
-			.on('mouseenter', {'plugin': plugin}, plugin.stopTimer)
-			.on('mouseleave', {'plugin': plugin}, plugin.startTimer)
+            .on('keydown', {'plugin': plugin}, plugin.onKeyDown)
+			.on('focusin mouseenter', {'plugin': plugin}, plugin.stopTimer)
+			.on('focusout mouseleave', {'plugin': plugin}, plugin.startTimer)
 		
 		$controls = $('<div/>')
-
+            .attr({'aria-hidden': true})
 			.addClass('ik_controls')
 			.appendTo($elem);
 				
@@ -59,7 +62,14 @@
 			.addClass('ik_navbar')
 			.appendTo($controls);
 			
-		plugin.slides = $elem
+		// add instructions for screen reader users
+        $('<div/>')
+            .attr({'id': id + '_instructions', 'aria-hidden': true})
+            .text(this.options.instructions)
+            .addClass('ik_readersonly')
+            .appendTo($elem);
+		
+        plugin.slides = $elem
 			.children('figure')
 			.each(function(i, el) {
 				var $me, $src;
@@ -67,7 +77,9 @@
 				$me = $(el);
 				$src = $me.find('img').remove().attr('src');
 				
-				$me.css({
+				$me
+                    .attr({'aria-hidden': true})
+                    .css({
 						'background-image': 'url(' + $src + ')'
 					});	
 				
@@ -102,7 +114,9 @@
 		}
 		
 		plugin.timer = setInterval(plugin.gotoSlide, plugin.options.animationSpeed, {'data':{'plugin': plugin, 'slide': 'right'}});
-		
+		if (event.type === 'focusout') {
+            plugin.element.removeAttr('aria-live');
+        }
 	};
 	
 	/** 
@@ -117,7 +131,9 @@
 		var plugin = event.data.plugin;
 		clearInterval(plugin.timer);
 		plugin.timer = null;
-		
+        if (event.type === 'focusin') {
+            plugin.element.attr({'aria-live': 'polite'}); // automatically read slide changes
+        }
 	};
 	
 	/** 
@@ -166,10 +182,14 @@
 			next = event.data.next;
 			dir = event.data.dir;
 			
-			active.off( ik_utils.getTransitionEventName() )
+			active
+                .attr({'aria-hidden': true})
+                .off( ik_utils.getTransitionEventName() )
 				.removeClass(direction + ' active');
 				
-			next.removeClass('next')
+			next
+                .attr({'aria-hidden': false})
+                .removeClass('next')
 				.addClass('active');
 			
 		});
@@ -178,6 +198,23 @@
 		
 	}
 	
+    Plugin.prototype.onKeyDown = function (event) {
+        var plugin = event.data.plugin;
+        switch (event.keyCode) {
+            case ik_utils.keys.left:
+                event.data = {'plugin': plugin, 'slide': 'left'};
+                plugin.gotoSlide(event);
+                break;
+            case ik_utils.keys.right:
+                event.data = {'plugin': plugin, 'slide': 'right'};
+                plugin.gotoSlide(event);
+                break;
+            case ik_utils.keys.esc:
+                plugin.element.blur();
+                break;
+        }
+    }
+    
 	$.fn[pluginName] = function ( options ) {
 		
 		return this.each(function () {
