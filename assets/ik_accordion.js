@@ -33,30 +33,69 @@
 		plugin = this;
 		
 		$elem.attr({
-			'id': id
+			'id': id,
+			'role': 'region',
+			'aria-multiselectable': !this.options.autoCollapse // define if more than one panel can be expanded
 		}).addClass('ik_accordion');
-			
+		this.headers = $elem.children('dt').attr({'role': 'heading'}); // set heading role for each accordion header
 		this.headers = $elem.children('dt').each(function(i, el) {
 			var $me, $btn;
 			
 			$me = $(el);
+			
 			$btn = $('<div/>').attr({
-          'id': id + '_btn_' + i
-        })
-        .addClass('button')
-        .html($me.html())
-        .on('click', {'plugin': plugin}, plugin.togglePanel);
-        
+		  'id': id + '_btn_' + i,
+		  'role': 'button',
+		  'aria-controls': id + '_panel_' + i, // associate button with corresponding panel
+		  'aria-expanded': false,
+		  'tabindex': 0
+		})
+		.addClass('button')
+		.html($me.html())
+		.on('keydown', {'plugin': plugin}, plugin.onKeyDown) // enable keyboard navigation
+		.on('click', {'plugin': plugin}, plugin.togglePanel);
+		
 			$me.empty().append($btn); // wrap content of each header in an element with role button
 		});
 		
 		this.panels = $elem.children('dd').each(function(i, el) {
 			var $me = $(this), id = $elem.attr('id') + '_panel_' + i;
 			$me.attr({
-				'id': id
+				'id': id,
+				'role': 'region',
+                'aria-hidden': true,
+				'tabindex': 0
 			});
 		}).hide();
 		
+	};
+	
+	Plugin.prototype.onKeyDown = function (event) {
+		var $me, $header, plugin, $elem, $current, ind;
+		$me = $(event.target);
+		$header = $me.parent('dt');
+		plugin = event.data.plugin;
+		$elem = $(plugin.element);
+		switch (event.keyCode) {
+			case ik_utils.keys.enter:
+			case ik_utils.keys.space:
+				event.preventDefault();
+				event.stopPropagation();
+				plugin.togglePanel(event);
+				break;
+			case ik_utils.keys.up:
+				ind = plugin.headers.index($header);
+				if (ind > 0) {
+					plugin.headers.eq(--ind).find('.button').focus();
+				}
+				break;
+			case ik_utils.keys.down:
+				ind = plugin.headers.index($header);
+				if (ind < plugin.headers.length - 1) {
+					plugin.headers.eq(++ind).find('.button').focus();
+				}
+				break;
+		}
 	};
 	
 	/** 
@@ -67,7 +106,7 @@
 	 * @param {object} event.data.plugin - Reference to plugin.
 	 */
 	Plugin.prototype.togglePanel = function (event) {
-		
+console.log('toggling');		
 		var plugin, $elem, $panel, $me, isVisible;
 		
 		plugin = event.data.plugin;
@@ -84,19 +123,24 @@
 				$btn = $hdr.find('.button');
 				
 				if($btn[0] != $(event.currentTarget)[0]) { 
-					$btn.removeClass('expanded');
-					$hdr.next().slideUp(plugin.options.animationSpeed);
+					$btn.attr({'aria-expanded': false});
+                    $btn.removeClass('expanded');
+					$hdr.next().attr({'aria-hidden': true});
+                    $hdr.next().slideUp(plugin.options.animationSpeed);
 				} else { 
-					$btn.addClass('expanded');
-					$hdr.next().slideDown(plugin.options.animationSpeed);
+					$btn.attr({'aria-expanded': true});
+                    $btn.addClass('expanded');
+					$hdr.next().attr({'aria-hidden': false});
+                    $hdr.next().slideDown(plugin.options.animationSpeed);
 				}
 			});
 			
 		} else { // toggle current panel depending on the state
 		
-			isVisible = !!$panel.is(':visible');
-			$panel.slideToggle({ duration: plugin.options.animationSpeed });
-			
+			isVisible = !$panel.is(':visible');
+            $panel.slideToggle({ duration: plugin.options.animationSpeed });
+            $me.parent('dt').find('.button').attr({'aria-expanded': isVisible});
+            $panel.attr({'aria-hidden': !isVisible});
 		}
 	};
 	
